@@ -1,0 +1,3 @@
+[submodule "3rdparty/amd-display-library"]
+	path = 3rdparty/amd-display-library
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/display-library.git
