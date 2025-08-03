@@ -1,15 +1,18 @@
 # AMD GPU Profile Manager
 
+[![build](https://github.com/OpenSystemTelemetry/AMD.GPU.ProfileManager/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/OpenSystemTelemetry/AMD.GPU.ProfileManager/actions/workflows/build.yml)
+
 AMD GPU Profile Manager is a utility for managing AMD GPU application profiles. It provides a interface to view, create, and manage GPU settings on a per-application basis.
+
+## Download
+
+You can download the latest release from the [GitHub Releases](https://github.com/OpenSystemTelemetry/AMD.GPU.ProfileManager/releases/latest) page.
 
 ## Features
 
 - **View Profile Databases**: Inspect application profiles from System, User, and OEM databases.
-- **Search and Filter**: Quickly find applications in the database.
-- **FSR Whitelisting**: Easily enable FSR for any application.
-- **Profile Management**:
-    - Create new application profiles.
-    - Remove existing user-defined profiles.
+- **Search and Filter**: Find applications in the database.
+- **FSR Whitelisting**: whitelist FSR for any application.
 
 ## Building the Project
 

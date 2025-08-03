@@ -1,7 +1,7 @@
 # Copyright 2025, Open System Telemetry contributors
 # SPDX-License-Identifier: MIT
 
-cmake_minimum_required(VERSION 4.0)
+cmake_minimum_required(VERSION 3.30)
 
 project(amd_gpu_profile_manager)
 
