@@ -4,11 +4,14 @@
 if(WIN32)
   add_executable(ost_amd_gpu_profilemanager_gui WIN32)
 else()
-  add_executable(ost_amd_gpu_profilemanager_gui)
+  add_executable(ost_amd_gpu_profilemanager_gui
+          window_details.cpp
+          app_info.h)
 endif()
 
 target_sources(ost_amd_gpu_profilemanager_gui PRIVATE
   "main.cpp"
+  "window_details.cpp"
   "window_main.cpp"
 )
 

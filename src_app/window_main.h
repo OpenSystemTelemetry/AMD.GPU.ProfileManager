@@ -20,7 +20,7 @@
 
 // GPU Profile Manager
 #include "amd_gpu_profilemanager_db.h"
-
+#include "window_details.h"
 
 
 //
@@ -49,6 +49,8 @@ namespace OST::AMD::GPU::ProfileManager {
         // DB
         private:
             void dbRefresh();
+            void dbSave();
+            static void dbSaveCallback(void* userdata, const char* const* files, int filte);
         private:
             std::map<ADL_AP_DATABASE, std::unique_ptr<OST::AMD::GPU::ProfileManager::DB>> m_db;
             std::map<ADL_AP_DATABASE, std::vector<AppDisplayInfo>> m_db_cache;
@@ -63,5 +65,6 @@ namespace OST::AMD::GPU::ProfileManager {
             void uiUpdateModalCreateNewProfile();
         private:
             char m_search_buffer[256]{};
+            std::unique_ptr<WindowDetails> m_ui_details;
     };
 }

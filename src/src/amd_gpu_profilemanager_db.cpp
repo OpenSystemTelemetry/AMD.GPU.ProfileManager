@@ -123,9 +123,9 @@ namespace OST::AMD::GPU::ProfileManager {
             {"profiles", db.m_profiles}
         };
 
-        nlohmann::json apps_json = nlohmann::json::object();
+        nlohmann::json apps_json = nlohmann::json::array();
         for (const auto& [key, val] : db.m_applications) {
-            apps_json[Utils::ToUtf8(key)] = *val;
+            apps_json.push_back(*val);
         }
         j["applications"] = apps_json;
     }

@@ -11,6 +11,11 @@
 #include <map>
 #include <locale>
 
+#include <fstream>
+
+// SDL
+#include <SDL3/SDL_dialog.h>
+
 // ImGUI
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
@@ -19,6 +24,11 @@
 #include "window_main.h" // Primary header for this implementation file
 #include "amd_gpu_profilemanager_db.h"
 #include "amd_gpu_profilemanager_utils.h"
+#include "amd_gpu_profilemanager_application.h"
+#include "amd_gpu_profilemanager_profile.h"
+#include "amd_gpu_profilemanager_property.h"
+#include "amd_gpu_profilemanager_use.h"
+#include <nlohmann/json.hpp>
 
 
 
@@ -57,6 +67,7 @@ namespace OST::AMD::GPU::ProfileManager {
 
 
 
+
     //
     // DB
     //
@@ -92,6 +103,21 @@ namespace OST::AMD::GPU::ProfileManager {
         m_db_cache_dirty = false;
     }
 
+    void WindowMain::dbSaveCallback(void* userdata, const char* const* files, int filte) {
+        if (!files[0]) {
+            return;
+        }
+        auto* cls = reinterpret_cast<WindowMain*>(userdata);
+        auto filepath = std::filesystem::path(files[0]);
+        filepath.replace_extension("json");
+        cls->m_db[cls->m_current_db_source]->SaveJson(filepath);
+    }
+
+    void WindowMain::dbSave() {
+        SDL_Window* sdl_window = (SDL_Window*)ImGui::GetMainViewport()->PlatformHandle;
+        SDL_DialogFileFilter filters[1] = { { "JSON", "json" } };
+        SDL_ShowSaveFileDialog(WindowMain::dbSaveCallback, this, sdl_window, filters, 1, nullptr);
+    }
 
 
     //
@@ -112,6 +138,13 @@ namespace OST::AMD::GPU::ProfileManager {
         }
 
         ImGui::End();
+
+        if (m_ui_details) {
+            if (!m_ui_details->UiUpdate()) {
+                m_ui_details.reset();
+            }
+        }
+
         return true;
     }
 
@@ -122,6 +155,10 @@ namespace OST::AMD::GPU::ProfileManager {
                 m_db_cache_dirty = true;
                 dbRefresh();
             }
+
+           if (ImGui::Button("Export")) {
+               dbSave();
+           }
 
             ImGui::Separator();
 
@@ -266,7 +303,11 @@ namespace OST::AMD::GPU::ProfileManager {
                 ImGui::EndDisabled();
 
                 ImGui::SameLine();
+                if (ImGui::Button("Details")) {
+                    m_ui_details = std::make_unique<WindowDetails>(app.app);
+                }
 
+                ImGui::SameLine();
                 ImGui::BeginDisabled(cur_source != ADL_AP_DATABASE__USER);
                 if (ImGui::Button("Remove")) {
                     app.app->Remove(m_adl_context);
@@ -295,15 +336,21 @@ namespace OST::AMD::GPU::ProfileManager {
         {
             static char filename[128] = "";
             static char title[128] = "";
+            static char path[128] = "";
+            static char version[128] = "";
 
             ImGui::InputText("Filename", filename, IM_ARRAYSIZE(filename));
             ImGui::InputText("Title", title, IM_ARRAYSIZE(title));
+            ImGui::InputText("Path", path, IM_ARRAYSIZE(path));
+            ImGui::InputText("Version", version, IM_ARRAYSIZE(version));
 
             if (ImGui::Button("OK", ImVec2(120, 0))) {
                 std::wstring w_filename = Utils::ToUtf16(filename);
                 std::wstring w_title = Utils::ToUtf16(title);
+                std::wstring w_path = Utils::ToUtf16(path);
+                std::wstring w_version = Utils::ToUtf16(version);
 
-                Application app(w_filename, w_title);
+                Application app(w_filename, w_title, w_path, w_version);
                 app.AssignProfile(m_adl_context, L"FSROVR", L"FsrOvrWhitelistProfile");
 
                 m_db_cache_dirty = true;

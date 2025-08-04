@@ -27,7 +27,7 @@ namespace OST::AMD::GPU::ProfileManager {
         public:
             Application() = default;
             Application(const APPLICATION& app);
-            Application(const std::wstring& filename, const std::wstring& title);
+            Application(const std::wstring& filename, const std::wstring& title, const std::wstring& path, const std::wstring& version);
             bool LoadCustomization(const APPLICATION& app);
 
             [[nodiscard]] const std::wstring GetDesignator() const { return m_designator; }

@@ -19,7 +19,7 @@ namespace OST::AMD::GPU::ProfileManager {
         LoadCustomization(app);
     }
 
-   Application::Application(const std::wstring& filename, const std::wstring& title) : m_filename(filename), m_title(title)
+   Application::Application(const std::wstring& filename, const std::wstring& title, const std::wstring& path, const std::wstring& version) : m_filename(filename), m_title(title), m_path(path), m_version(version)
    {
        m_designator = GetFileName() + L"|" + GetPath() + L"|" + GetTitle() + L"|" + GetVersion();
    }
