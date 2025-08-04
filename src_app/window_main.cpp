@@ -341,8 +341,8 @@ namespace OST::AMD::GPU::ProfileManager {
 
             ImGui::InputText("Filename", filename, IM_ARRAYSIZE(filename));
             ImGui::InputText("Title", title, IM_ARRAYSIZE(title));
-            ImGui::InputText("Path", path, IM_ARRAYSIZE(path));
-            ImGui::InputText("Version", version, IM_ARRAYSIZE(version));
+            ImGui::InputTextWithHint("Path", "optional", path, IM_ARRAYSIZE(path));
+            ImGui::InputTextWithHint("Version", "optional", version, IM_ARRAYSIZE(version));
 
             if (ImGui::Button("OK", ImVec2(120, 0))) {
                 std::wstring w_filename = Utils::ToUtf16(filename);
