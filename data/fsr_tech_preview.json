@@ -1,0 +1,30 @@
+{
+  "title": "FSR Tech Preview",
+  "applications":
+    [
+      {
+        "title": "A Quiet Place: The Road Ahead",
+        "exe": "AQuietPlace-Win64-Shipping.exe"
+      },
+      {
+        "title": "ARK: Survival Ascended",
+        "exe": "ArkAscended.exe"
+      },
+      {
+        "title": "Ninja Gaiden 2 Black",
+        "exe": "NINJAGAIDEN2BLACK-Win64-Shipping.exe"
+      },
+      {
+        "title": "Silent Hill 2",
+        "exe": "SHProto-Win64-Shipping.exe"
+      },
+      {
+        "title": "inZOI",
+        "exe": "inZOI-Win64-Shipping.exe"
+      },
+      {
+        "title": "inZOI",
+        "exe": "inZOI.exe"
+      }
+    ]
+}

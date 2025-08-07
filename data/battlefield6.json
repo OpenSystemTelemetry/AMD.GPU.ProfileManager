@@ -1,0 +1,14 @@
+{
+  "title": "Battlefield 6 Open Beta",
+  "applications":
+    [
+      {
+        "title": "Battlefield 6 Open Beta",
+        "exe": "bf6event.exe"
+      },
+      {
+        "title": "Battlefield 6 Open Beta",
+        "exe": "Steamappid:2807960"
+      }
+    ]
+}

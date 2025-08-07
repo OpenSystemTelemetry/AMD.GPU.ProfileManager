@@ -63,8 +63,11 @@ namespace OST::AMD::GPU::ProfileManager {
             void uiUpdateTopbar();
             void uiUpdateTable();
             void uiUpdateModalCreateNewProfile();
+            void uiUpdatePresetActions();
+            bool isAppWhitelisted(const std::wstring& filename);
         private:
             char m_search_buffer[256]{};
             std::unique_ptr<WindowDetails> m_ui_details;
+           std::wstring m_selected_preset;
     };
 }

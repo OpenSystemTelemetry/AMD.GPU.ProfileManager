@@ -7,11 +7,10 @@
 
 // stdlib
 #include <algorithm>
-#include <string>
-#include <map>
-#include <locale>
-
 #include <fstream>
+#include <locale>
+#include <map>
+#include <string>
 
 // SDL
 #include <SDL3/SDL_dialog.h>
@@ -20,15 +19,18 @@
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
 
+// Nlohmann
+#include <nlohmann/json.hpp>
+
 // GPU Profile Manager
-#include "window_main.h" // Primary header for this implementation file
+#include "window_main.h"
 #include "amd_gpu_profilemanager_db.h"
 #include "amd_gpu_profilemanager_utils.h"
 #include "amd_gpu_profilemanager_application.h"
 #include "amd_gpu_profilemanager_profile.h"
 #include "amd_gpu_profilemanager_property.h"
 #include "amd_gpu_profilemanager_use.h"
-#include <nlohmann/json.hpp>
+#include "whitelist_preset_manager.h"
 
 
 
@@ -47,6 +49,7 @@ namespace OST::AMD::GPU::ProfileManager {
         }
 
         m_db_cache_dirty = true;
+        WhitelistPresetManager::RegisterAll();
         dbRefresh();
     }
 
@@ -135,6 +138,7 @@ namespace OST::AMD::GPU::ProfileManager {
             uiUpdateTopbar();
             uiUpdateTable();
             uiUpdateModalCreateNewProfile();
+            uiUpdatePresetActions();
         }
 
         ImGui::End();
@@ -322,12 +326,47 @@ namespace OST::AMD::GPU::ProfileManager {
         ImGui::EndTable();
     }
 
+    bool WindowMain::isAppWhitelisted(const std::wstring& filename) {
+        for (const auto& [db_type, db_cache] : m_db_cache) {
+            for (const auto& app_cache : db_cache) {
+                if (app_cache.app->GetFileName() == filename && app_cache.fsr_enabled) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    void WindowMain::uiUpdatePresetActions() {
+        if (m_current_db_source != ADL_AP_DATABASE__USER) {
+            return;
+        }
+
+        const auto& presets = WhitelistPresetManager::GetAll();
+        for (const auto& [preset_name, preset_apps] : presets) {
+            ImGui::SameLine();
+            std::string button_label = "Add " + Utils::ToUtf8(preset_name);
+
+            if (ImGui::Button(button_label.c_str())) {
+                m_selected_preset = preset_name;
+                for (const auto& preset_app : preset_apps) {
+                    if (!isAppWhitelisted(preset_app.exename)) {
+                        Application app(preset_app.exename, preset_app.title, L"", L"");
+                        app.AssignProfile(m_adl_context, L"FSROVR", L"FsrOvrWhitelistProfile");
+                    }
+                }
+                m_db_cache_dirty = true;
+                dbRefresh();
+            }
+        }
+    }
+
     void WindowMain::uiUpdateModalCreateNewProfile() {
         if (m_current_db_source == ADL_AP_DATABASE__USER) {
             if (ImGui::Button("Create")) {
                 ImGui::OpenPopup("Create New Profile");
-           }
-       }
+            }
+        }
 
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
