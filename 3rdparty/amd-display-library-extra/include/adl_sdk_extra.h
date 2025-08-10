@@ -46,7 +46,10 @@ typedef int (*ADL2_APPLICATIONPROFILES_CONVERTTOCOMPACT           )(ADL_CONTEXT_
 
 typedef int (*ADL2_APPLICATIONPROFILES_GETCUSTOMIZATION           )(ADL_CONTEXT_HANDLE context, ADL_AP_DATABASE Databaseln, CUSTOMISATIONS *pCustomizationOut);
         int   ADL2_ApplicationProfiles_GetCustomization            (ADL_CONTEXT_HANDLE context, ADL_AP_DATABASE Databaseln, CUSTOMISATIONS *pCustomizationOut);
-        
+
+typedef int (*ADL_APPLICATIONPROFILES_GETCUSTOMIZATION           )(ADL_AP_DATABASE Databaseln, CUSTOMISATIONS *pCustomizationOut);
+        int   ADL_ApplicationProfiles_GetCustomization            (ADL_AP_DATABASE Databaseln, CUSTOMISATIONS *pCustomizationOut);
+
 typedef int (*ADL2_APPLICATIONPROFILES_PROFILE_EXIST              )(ADL_CONTEXT_HANDLE context, const wchar_t* DriverArea, const wchar_t* ProfileName, BOOL* outExists);
         int   ADL2_ApplicationProfiles_Profile_Exist               (ADL_CONTEXT_HANDLE context, const wchar_t* DriverArea, const wchar_t* ProfileName, BOOL* outExists);
 

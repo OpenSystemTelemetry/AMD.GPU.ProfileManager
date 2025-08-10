@@ -86,6 +86,18 @@ int ADL2_ApplicationProfiles_ConvertToCompact(ADL_CONTEXT_HANDLE context, CUSTOM
 }
 
 
+int ADL_ApplicationProfiles_GetCustomization(ADL_AP_DATABASE Databaseln, CUSTOMISATIONS *pCustomizationOut) {
+    static ADL_APPLICATIONPROFILES_GETCUSTOMIZATION f = NULL;
+    if(!f){
+        f = get_function("ADL_ApplicationProfiles_GetCustomization");
+    }
+    if(!f){
+        return INT_MIN;
+    }
+    return f(Databaseln, pCustomizationOut);
+}
+
+
 int ADL2_ApplicationProfiles_GetCustomization(ADL_CONTEXT_HANDLE context, ADL_AP_DATABASE Databaseln, CUSTOMISATIONS *pCustomizationOut) {
     static ADL2_APPLICATIONPROFILES_GETCUSTOMIZATION f = NULL;
     if(!f){

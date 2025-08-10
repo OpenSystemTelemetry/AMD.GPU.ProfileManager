@@ -27,6 +27,7 @@
 #include "amd_gpu_profilemanager_db.h"
 #include "amd_gpu_profilemanager_utils.h"
 #include "amd_gpu_profilemanager_application.h"
+#include "amd_gpu_profilemanager_common.h"
 #include "amd_gpu_profilemanager_profile.h"
 #include "amd_gpu_profilemanager_property.h"
 #include "amd_gpu_profilemanager_use.h"
@@ -40,32 +41,19 @@
 
 namespace OST::AMD::GPU::ProfileManager {
     WindowMain::WindowMain() {
-        if (ADL2_Main_Control_Create(adl_malloc, 1, &m_adl_context) != ADL_OK)
-        {
-            m_adl_context = nullptr;
-        }
-
         for (const auto& type : {DatabaseType::System, DatabaseType::User, DatabaseType::OEM, DatabaseType::File}) {
-            m_db[type] = std::make_unique<DB>();
+            m_db[type] = {};
             m_db_apps = {};
             m_db_dirty[type] = true;
         }
-
-        WhitelistPresetManager::RegisterAll();
-        dbRefresh();
+        m_adl_context = Common::Initialize();
     }
 
     WindowMain::~WindowMain() {
-        if (m_adl_context) {
-            ADL2_Main_Control_Destroy(m_adl_context);
-        }
+        Common::Deinitialize(m_adl_context);
     }
 
-    void* __stdcall WindowMain::adl_malloc ( int iSize )
-    {
-        void* lpBuffer = malloc ( iSize );
-        return lpBuffer;
-    }
+
 
     //
     // DB
@@ -74,15 +62,8 @@ namespace OST::AMD::GPU::ProfileManager {
     void WindowMain::dbRefresh() {
         for (auto& [db_type, db_dirty] : m_db_dirty) {
             if (db_dirty){
-                auto& db = m_db[db_type];
-                db->Clear();
-                CUSTOMISATIONS customisations{};
-                if (m_adl_context) {
-                    if (ADL2_ApplicationProfiles_GetCustomization(m_adl_context, to_adl(db_type), &customisations) == ADL_OK) {
-                        db->LoadCustomization(customisations);
-                    }
-                }
-                m_db_apps[db_type] = db->GetApplicationsCombined();
+                m_db[db_type] = DB::from_adl(m_adl_context, db_type);
+                m_db_apps[db_type] = m_db[db_type].GetApplicationsCombined();
             }
             db_dirty = false;
         }
@@ -95,7 +76,7 @@ namespace OST::AMD::GPU::ProfileManager {
         auto* cls = reinterpret_cast<WindowMain*>(userdata);
         auto filepath = std::filesystem::path(files[0]);
         filepath.replace_extension("json");
-        cls->m_db[cls->m_db_selected]->SaveJson(filepath);
+        cls->m_db[cls->m_db_selected].SaveJson(filepath);
     }
 
     void WindowMain::dbSave() {
@@ -119,14 +100,24 @@ namespace OST::AMD::GPU::ProfileManager {
     //
 
     bool WindowMain::UiUpdate() {
-        m_db_selected = m_db_selected_next;
-        dbRefresh();
-
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->WorkPos);
         ImGui::SetNextWindowSize(viewport->WorkSize);
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_MenuBar;
         if (ImGui::Begin("Database Viewer", nullptr, window_flags)) {
+            if (!m_adl_context) {
+                uiUpdateNoAdl();
+                return true;
+            }
+
+            m_db_selected = m_db_selected_next;
+            dbRefresh();
+
+            if (m_db_apps[DatabaseType::System].empty()) {
+                uiUpdateDbFailed();
+                return true;
+            }
+
             uiUpdateTopbar();
             uiUpdateTable();
             uiUpdateModalCreateNewProfile();
@@ -142,6 +133,46 @@ namespace OST::AMD::GPU::ProfileManager {
         }
 
         return true;
+    }
+
+    void WindowMain::uiUpdateNoAdl() {
+        const char* warning_text = "Error: Failed to initialize AMD ADL (AMD Display Library).\n\nPossible causes:\n- No AMD display driver is installed.\n- The AMD display driver is outdated or corrupted.\n- No supported AMD GPU is active (e.g., a non-AMD GPU is in use).\n\nHow to fix:\n- Install or update to the latest AMD display driver for your GPU.\n- Reboot after installation.\n- If it still fails, perform a clean driver install.";
+
+        // Center the text
+        ImVec2 window_size = ImGui::GetWindowSize();
+        ImVec2 text_size = ImGui::CalcTextSize(warning_text, NULL, false, window_size.x * 0.8f); // Wrap at 80% of window width
+        float pos_x = (window_size.x - text_size.x) * 0.5f;
+        float pos_y = (window_size.y - text_size.y) * 0.5f;
+        ImGui::SetCursorPos(ImVec2(pos_x, pos_y));
+
+        // Display the warning text with word wrapping
+        ImGui::BeginGroup();
+        ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + window_size.x * 0.8f);
+        ImGui::TextUnformatted(warning_text);
+        ImGui::PopTextWrapPos();
+        ImGui::EndGroup();
+
+        ImGui::End();
+    }
+
+    void WindowMain::uiUpdateDbFailed() {
+        const char* warning_text = "Error: Couldn't read the Driver Customization database.\n\nPossible causes:\n- AMD Radeon Software is not supported.\n- The database file is missing or corrupted.\n\nHow to fix:\n- Install AMD Radeon Software version 25.5.1 or newer, then try again.";
+
+        // Center the text
+        ImVec2 window_size = ImGui::GetWindowSize();
+        ImVec2 text_size = ImGui::CalcTextSize(warning_text, NULL, false, window_size.x * 0.8f); // Wrap at 80% of window width
+        float pos_x = (window_size.x - text_size.x) * 0.5f;
+        float pos_y = (window_size.y - text_size.y) * 0.5f;
+        ImGui::SetCursorPos(ImVec2(pos_x, pos_y));
+
+        // Display the warning text with word wrapping
+        ImGui::BeginGroup();
+        ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + window_size.x * 0.8f);
+        ImGui::TextUnformatted(warning_text);
+        ImGui::PopTextWrapPos();
+        ImGui::EndGroup();
+
+        ImGui::End();
     }
 
     void WindowMain::uiUpdateTopbar() {
@@ -182,13 +213,10 @@ namespace OST::AMD::GPU::ProfileManager {
             ImGui::SameLine();
 
             const auto& db = m_db.at(m_db_selected);
-            if (db)
+            auto release = Utils::ToUtf8(db.GetRelease());
+            if (!release.empty())
             {
-                auto release = Utils::ToUtf8(db->GetRelease());
-                if (!release.empty())
-                {
-                    ImGui::Text("Release: %s", release.c_str());
-                }
+                ImGui::Text("Release: %s", release.c_str());
             }
 
             // Search bar

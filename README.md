@@ -4,6 +4,10 @@
 
 AMD GPU Profile Manager is a utility for managing AMD GPU application profiles. It provides a interface to view, create, and manage GPU settings on a per-application basis.
 
+## System Requirements
+
+* AMD Radeon Software 25.5.1 or higher
+
 ## Download
 
 You can download the latest release from the [GitHub Releases](https://github.com/OpenSystemTelemetry/AMD.GPU.ProfileManager/releases/latest) page.

@@ -29,21 +29,13 @@
 //
 
 namespace OST::AMD::GPU::ProfileManager {
-    struct AppDisplayInfo {
-        std::shared_ptr<OST::AMD::GPU::ProfileManager::Application> app;
-        std::string m_designator;
-        bool fsr_enabled;
-    };
-
-
     class WindowMain: public Uni::GUI::UiElement {
         public:
             explicit WindowMain();
             ~WindowMain() override;
         
         // ADL
-        private:
-            static void* __stdcall adl_malloc ( int iSize );
+
         private:
             ADL_CONTEXT_HANDLE m_adl_context{};
 
@@ -53,7 +45,7 @@ namespace OST::AMD::GPU::ProfileManager {
             void dbSave();
             static void dbSaveCallback(void* userdata, const char* const* files, int filte);
         private:
-            std::map<DatabaseType, std::unique_ptr<DB>> m_db;
+            std::map<DatabaseType, DB> m_db;
             std::map<DatabaseType, std::vector<ApplicationCombined>> m_db_apps;
             std::map<DatabaseType, bool> m_db_dirty;
             DatabaseType m_db_selected{DatabaseType::System};
@@ -68,6 +60,8 @@ namespace OST::AMD::GPU::ProfileManager {
         // UI
         public:
             bool UiUpdate() override;
+            void uiUpdateNoAdl();
+            void uiUpdateDbFailed();
             void uiUpdateTopbar();
             void uiUpdateTopbarSearch();
             void uiUpdateTable();

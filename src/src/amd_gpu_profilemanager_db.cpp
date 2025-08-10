@@ -27,6 +27,27 @@
 //
 
 namespace OST::AMD::GPU::ProfileManager {
+    DB DB::from_adl(ADL_CONTEXT_HANDLE handle, DatabaseType type) {
+        DB result;
+
+        CUSTOMISATIONS customisations{};
+
+        int ret{ADL_ERR};
+        if (handle) {
+            ret = ADL2_ApplicationProfiles_GetCustomization(handle, to_adl(type), &customisations);
+        }
+
+        if (ret != ADL_OK) {
+            ret = ADL_ApplicationProfiles_GetCustomization(to_adl(type), &customisations);
+        }
+
+        if (ret == ADL_OK) {
+            result.LoadCustomization(customisations);
+        }
+
+        return result;
+    }
+
     void DB::Clear() {
         m_area.clear();
         m_applications.clear();

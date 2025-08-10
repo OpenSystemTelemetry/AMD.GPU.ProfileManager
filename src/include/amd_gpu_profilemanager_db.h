@@ -10,15 +10,16 @@
 // stdlib
 #include <filesystem>
 #include <vector>
-#include <map>
 #include <memory>
-#include <optional>
 
+// nlohmann
 #include "nlohmann/json.hpp"
 
+// AMD GPU Profile Manager
 #include "amd_gpu_profilemanager_application.h"
 #include "amd_gpu_profilemanager_application_combined.h"
 #include "amd_gpu_profilemanager_area.h"
+#include "amd_gpu_profilemanager_database_type.h"
 #include "amd_gpu_profilemanager_profile.h"
 
 
@@ -29,6 +30,8 @@
 namespace OST::AMD::GPU::ProfileManager {
     class DB {
         public:
+            static DB from_adl(ADL_CONTEXT_HANDLE handle, DatabaseType type);
+
             friend void to_json(nlohmann::json& j, const DB& db);
 
             void Clear();

@@ -24,7 +24,7 @@ std::string uni_gui_app_name_get()
 
 std::string uni_gui_app_version_get()
 {
-    return "0.0.5";
+    return "0.0.6";
 }
 
 std::vector<std::shared_ptr<Uni::GUI::UiElement>> uni_gui_app_initialize( int argc, char **argv)
