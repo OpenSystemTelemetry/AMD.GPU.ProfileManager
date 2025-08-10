@@ -16,6 +16,9 @@
 
 // OST AMD GPU ProfileManager
 #include "amd_gpu_profilemanager_db.h"
+
+#include <iostream>
+
 #include "amd_gpu_profilemanager_utils.h"
 
 
@@ -53,7 +56,7 @@ namespace OST::AMD::GPU::ProfileManager {
         auto* app_ptr = customization.HeadApplication;
         while(app_ptr){
             auto app_obj = std::make_unique<Application>(*app_ptr);
-            m_applications[app_obj->GetDesignator()] = std::move(app_obj);
+            m_applications.push_back(std::move(app_obj));
             app_ptr = app_ptr->NextApplication;
         }
 
@@ -99,21 +102,44 @@ namespace OST::AMD::GPU::ProfileManager {
         return true;
     }
 
-    const std::optional<Application*> DB::GetApplication(const std::wstring& designator) const {
-        auto it = m_applications.find(designator);
-        if (it == m_applications.end()) {
-            return {};
-        }
-        return it->second.get();
+    std::vector<std::shared_ptr<Application>> DB::GetApplications() const {
+        return m_applications;
     }
 
-    std::vector<std::shared_ptr<Application>> DB::GetApplications() const {
-        std::vector<std::shared_ptr<Application>> applications;
-        applications.reserve(m_applications.size());
-        for (const auto& pair : m_applications) {
-            applications.push_back(pair.second);
+    std::vector<ApplicationCombined> DB::GetApplicationsCombined() const {
+        // consolidate by exe name
+        std::map<std::wstring, ApplicationCombined> combined_filename;
+        for (const auto& app : m_applications) {
+            auto filename = app->GetFileName();
+            std::transform(filename.begin(),filename.end(), filename.begin(), ::towlower);
+            if (!combined_filename.contains(filename)) {
+                combined_filename[filename];
+            }
+            combined_filename[filename].ApplicationAdd(app);
         }
-        return applications;
+
+        // consolidate by title
+        std::map<std::wstring, ApplicationCombined> combined_title;
+        for (auto& pair : combined_filename) {
+            auto title = pair.second.InfoTitleGet().front();
+            std::ranges::transform(title, title.begin(), ::towlower);
+            std::erase_if(title, ::iswspace);
+            Utils::RemoveSubstring(title, {L"-dx11",L"-dx12", L" 64bit"});
+
+            OutputDebugStringW(title.c_str());
+            OutputDebugStringW(L"\r\n");
+
+            if (!combined_title.contains(title)) {
+                combined_title[title];
+            }
+            combined_title[title].ApplicationAdd(pair.second);
+        }
+
+        std::vector<ApplicationCombined> result;
+        for (auto& pair : combined_title) {
+            result.emplace_back(std::move(pair.second));
+        }
+        return result;
     }
 
     void to_json(nlohmann::json& j, const DB& db) {
@@ -124,8 +150,8 @@ namespace OST::AMD::GPU::ProfileManager {
         };
 
         nlohmann::json apps_json = nlohmann::json::array();
-        for (const auto& [key, val] : db.m_applications) {
-            apps_json.push_back(*val);
+        for (const auto& app : db.m_applications) {
+            apps_json.push_back(*app);
         }
         j["applications"] = apps_json;
     }

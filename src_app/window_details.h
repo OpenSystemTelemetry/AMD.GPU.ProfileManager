@@ -31,15 +31,16 @@
 namespace OST::AMD::GPU::ProfileManager {
     class WindowDetails: public Uni::GUI::UiElement {
     public:
-        explicit WindowDetails(std::shared_ptr<OST::AMD::GPU::ProfileManager::Application> app);
+        explicit WindowDetails(ApplicationCombined& app);
         ~WindowDetails() override;
 
-        // ADL
+        // Application
     private:
-        std::shared_ptr<OST::AMD::GPU::ProfileManager::Application> m_adl_app;
+        ApplicationCombined& m_app;
 
         // UI
     public:
         bool UiUpdate() override;
+        void UiUpdateApp(std::shared_ptr<Application> app);
     };
 }

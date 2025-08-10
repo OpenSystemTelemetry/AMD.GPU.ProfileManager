@@ -30,7 +30,6 @@ namespace OST::AMD::GPU::ProfileManager {
             Application(const std::wstring& filename, const std::wstring& title, const std::wstring& path, const std::wstring& version);
             bool LoadCustomization(const APPLICATION& app);
 
-            [[nodiscard]] const std::wstring GetDesignator() const { return m_designator; }
             [[nodiscard]] const std::wstring& GetFileName() const { return m_filename; }
             [[nodiscard]] const std::wstring& GetPath() const { return m_path; }
             [[nodiscard]] const std::wstring& GetTitle() const { return m_title; }
@@ -45,7 +44,6 @@ namespace OST::AMD::GPU::ProfileManager {
             std::wstring m_path;
             std::wstring m_title;
             std::wstring m_version;
-            std::wstring m_designator;
             std::vector<Use> m_uses;
     };
 

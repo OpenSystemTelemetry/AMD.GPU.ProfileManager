@@ -20,6 +20,7 @@
 
 // GPU Profile Manager
 #include "amd_gpu_profilemanager_db.h"
+#include "amd_gpu_profilemanager_database_type.h"
 #include "window_details.h"
 
 
@@ -52,22 +53,29 @@ namespace OST::AMD::GPU::ProfileManager {
             void dbSave();
             static void dbSaveCallback(void* userdata, const char* const* files, int filte);
         private:
-            std::map<ADL_AP_DATABASE, std::unique_ptr<OST::AMD::GPU::ProfileManager::DB>> m_db;
-            std::map<ADL_AP_DATABASE, std::vector<AppDisplayInfo>> m_db_cache;
-            bool m_db_cache_dirty{false};
-            ADL_AP_DATABASE m_current_db_source = ADL_AP_DATABASE__SYSTEM;
+            std::map<DatabaseType, std::unique_ptr<DB>> m_db;
+            std::map<DatabaseType, std::vector<ApplicationCombined>> m_db_apps;
+            std::map<DatabaseType, bool> m_db_dirty;
+            DatabaseType m_db_selected{DatabaseType::System};
+            DatabaseType m_db_selected_next{DatabaseType::System};
+
+        // Search
+            void searchUpdate();
+        private:
+            std::array<char, 256U> m_search_buf{};
+            std::wstring m_search_str{};
 
         // UI
         public:
             bool UiUpdate() override;
             void uiUpdateTopbar();
+            void uiUpdateTopbarSearch();
             void uiUpdateTable();
             void uiUpdateModalCreateNewProfile();
             void uiUpdatePresetActions();
-            bool isAppWhitelisted(const std::wstring& filename);
         private:
-            char m_search_buffer[256]{};
             std::unique_ptr<WindowDetails> m_ui_details;
            std::wstring m_selected_preset;
+
     };
 }

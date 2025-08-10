@@ -8,6 +8,11 @@ AMD GPU Profile Manager is a utility for managing AMD GPU application profiles. 
 
 You can download the latest release from the [GitHub Releases](https://github.com/OpenSystemTelemetry/AMD.GPU.ProfileManager/releases/latest) page.
 
+## Database
+
+List of all known FSR 3.1/4.0 games:
+https://docs.google.com/spreadsheets/d/1LaZlw-SBDrJhJTuEypa0T8nOErnVtFchEgLJPhE0Xoo/edit?usp=sharing
+
 ## Features
 
 - **View Profile Databases**: Inspect application profiles from System, User, and OEM databases.

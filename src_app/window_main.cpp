@@ -40,25 +40,24 @@
 
 namespace OST::AMD::GPU::ProfileManager {
     WindowMain::WindowMain() {
-        m_db[ADL_AP_DATABASE__SYSTEM] = std::make_unique<DB>();
-        m_db[ADL_AP_DATABASE__OEM] = std::make_unique<DB>();
-        m_db[ADL_AP_DATABASE__USER] = std::make_unique<DB>();
         if (ADL2_Main_Control_Create(adl_malloc, 1, &m_adl_context) != ADL_OK)
         {
             m_adl_context = nullptr;
         }
 
-        m_db_cache_dirty = true;
+        for (const auto& type : {DatabaseType::System, DatabaseType::User, DatabaseType::OEM, DatabaseType::File}) {
+            m_db[type] = std::make_unique<DB>();
+            m_db_apps = {};
+            m_db_dirty[type] = true;
+        }
+
         WhitelistPresetManager::RegisterAll();
         dbRefresh();
     }
 
     WindowMain::~WindowMain() {
         if (m_adl_context) {
-            if (ADL2_Main_Control_Destroy(m_adl_context) != ADL_OK)
-            {
-                // Handle error
-            }
+            ADL2_Main_Control_Destroy(m_adl_context);
         }
     }
 
@@ -68,42 +67,25 @@ namespace OST::AMD::GPU::ProfileManager {
         return lpBuffer;
     }
 
-
-
-
     //
     // DB
     //
 
     void WindowMain::dbRefresh() {
-        if (m_db_cache_dirty) {
-            for (auto const& [db_type, db_ptr] : m_db) {
-                db_ptr->Clear();
+        for (auto& [db_type, db_dirty] : m_db_dirty) {
+            if (db_dirty){
+                auto& db = m_db[db_type];
+                db->Clear();
                 CUSTOMISATIONS customisations{};
                 if (m_adl_context) {
-                    if (ADL2_ApplicationProfiles_GetCustomization(m_adl_context, db_type, &customisations) == ADL_OK) {
-                        db_ptr->LoadCustomization(customisations);
+                    if (ADL2_ApplicationProfiles_GetCustomization(m_adl_context, to_adl(db_type), &customisations) == ADL_OK) {
+                        db->LoadCustomization(customisations);
                     }
                 }
-                m_db_cache[db_type].clear();
-
-                for (const auto& app : db_ptr->GetApplications()) {
-                    bool fsr_enabled = false;
-                    for (const auto &use: app->GetUses()) {
-                        if (use.GetDriver() == L"FSROVR" && use.GetName() == L"FsrOvrWhitelistProfile") {
-                            fsr_enabled = true;
-                            break;
-                        }
-                    }
-
-
-                    auto designator = Utils::ToUtf8(app->GetDesignator());
-                    std::transform(designator.begin(), designator.end(), designator.begin(), ::tolower);
-                    m_db_cache[db_type].push_back({app, designator, fsr_enabled});
-                }
+                m_db_apps[db_type] = db->GetApplicationsCombined();
             }
+            db_dirty = false;
         }
-        m_db_cache_dirty = false;
     }
 
     void WindowMain::dbSaveCallback(void* userdata, const char* const* files, int filte) {
@@ -113,7 +95,7 @@ namespace OST::AMD::GPU::ProfileManager {
         auto* cls = reinterpret_cast<WindowMain*>(userdata);
         auto filepath = std::filesystem::path(files[0]);
         filepath.replace_extension("json");
-        cls->m_db[cls->m_current_db_source]->SaveJson(filepath);
+        cls->m_db[cls->m_db_selected]->SaveJson(filepath);
     }
 
     void WindowMain::dbSave() {
@@ -122,12 +104,22 @@ namespace OST::AMD::GPU::ProfileManager {
         SDL_ShowSaveFileDialog(WindowMain::dbSaveCallback, this, sdl_window, filters, 1, nullptr);
     }
 
+    //
+    // Search
+    //
+
+    void WindowMain::searchUpdate() {
+        m_search_str = Utils::ToUtf16(m_search_buf.data());
+        std::transform(m_search_str.begin(), m_search_str.end(),m_search_str.begin(),::towlower);
+    }
+
 
     //
     // UI
     //
 
     bool WindowMain::UiUpdate() {
+        m_db_selected = m_db_selected_next;
         dbRefresh();
 
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -156,33 +148,40 @@ namespace OST::AMD::GPU::ProfileManager {
         if (ImGui::BeginMenuBar())
         {
             if (ImGui::Button("Refresh")) {
-                m_db_cache_dirty = true;
-                dbRefresh();
+                for (auto& [db_type, db_dirty] : m_db_dirty) {
+                    db_dirty = true;
+                }
             }
 
-           if (ImGui::Button("Export")) {
-               dbSave();
-           }
+            if (ImGui::Button("Export")) {
+                dbSave();
+            }
 
             ImGui::Separator();
 
-            if (ImGui::RadioButton("System", m_current_db_source == ADL_AP_DATABASE__SYSTEM)) {
-                m_current_db_source = ADL_AP_DATABASE__SYSTEM;
+            if (ImGui::RadioButton("System", m_db_selected == DatabaseType::System)) {
+                m_db_selected_next = DatabaseType::System;
             }
             ImGui::SameLine();
-            if (ImGui::RadioButton("User", m_current_db_source == ADL_AP_DATABASE__USER)) {
-                m_current_db_source = ADL_AP_DATABASE__USER;
+            if (ImGui::RadioButton("User", m_db_selected == DatabaseType::User)) {
+                m_db_selected_next = DatabaseType::User;
             }
             ImGui::SameLine();
-            if (ImGui::RadioButton("OEM", m_current_db_source == ADL_AP_DATABASE__OEM)) {
-                m_current_db_source = ADL_AP_DATABASE__OEM;
+            if (ImGui::RadioButton("OEM", m_db_selected == DatabaseType::OEM)) {
+                m_db_selected_next = DatabaseType::OEM;
             }
+#if 0
+            ImGui::SameLine();
+            if (ImGui::RadioButton("File", m_db_selected == DatabaseType::File)) {
+                m_db_selected_next = DatabaseType::File;
+            }
+#endif
 
             ImGui::SameLine();
             ImGui::Separator();
             ImGui::SameLine();
 
-            const auto& db = m_db.at(m_current_db_source);
+            const auto& db = m_db.at(m_db_selected);
             if (db)
             {
                 auto release = Utils::ToUtf8(db->GetRelease());
@@ -194,128 +193,88 @@ namespace OST::AMD::GPU::ProfileManager {
 
             // Search bar
             ImGui::SameLine();
-            ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 350);
-            if (ImGui::InputTextWithHint("##Search", "Search...", m_search_buffer, sizeof(m_search_buffer))) {
-                // Nothing to do here, the filtering happens in uiUpdateTable
-            }
-
-            // Clear button
-            if (m_search_buffer[0] != '\0') {
-                ImGui::SameLine();
-                if (ImGui::Button("X")) {
-                    m_search_buffer[0] = '\0';
-                }
-            }
-
+            uiUpdateTopbarSearch();
             ImGui::EndMenuBar();
         }
     }
 
+    void WindowMain::uiUpdateTopbarSearch() {
+        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 350);
+        if (ImGui::InputTextWithHint("##Search", "Search...", m_search_buf.data(),  m_search_buf.size())) {
+            searchUpdate();
+        }
+    }
+
+
     void WindowMain::uiUpdateTable() {
         if (ImGui::BeginTable("Applications",
             4,
-            ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Sortable))
+            ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg ))
         {
-            ImGui::TableSetupColumn("Filename");
             ImGui::TableSetupColumn("Title");
+            ImGui::TableSetupColumn("Filename");
             ImGui::TableSetupColumn("FSR Whitelisted");
             ImGui::TableSetupColumn("Actions");
             ImGui::TableHeadersRow();
 
-
-            if (const ImGuiTableSortSpecs* sort_specs = ImGui::TableGetSortSpecs())
-            {
-                if (sort_specs->SpecsDirty)
-                {
-                    // Sort the data right now
-                    std::sort(m_db_cache[m_current_db_source].begin(),
-                        m_db_cache[m_current_db_source].end(),
-                        [&](const auto& a, const auto& b) {
-                            for (int i = 0; i < sort_specs->SpecsCount; i++)
-                            {
-                                const ImGuiTableColumnSortSpecs* column_spec = &sort_specs->Specs[i];
-
-                                // Sort ascending or descending based on the current spec
-                                int delta = 0;
-                                switch (column_spec->ColumnIndex)
-                                {
-                                case 0: // Filename
-                                        delta = a.app->GetFileName().compare(b.app->GetFileName());
-                                        break;
-                                    case 1: // Title
-                                        delta = a.app->GetTitle().compare(b.app->GetTitle());
-                                        break;
-                                    case 2: // FSR Enabled
-                                        delta = (a.fsr_enabled - b.fsr_enabled);
-                                        break;
-                                    default:
-                                        break;
-                                    }
-
-                                    if (delta != 0)
-                                    {
-                                        if (column_spec->SortDirection == ImGuiSortDirection_Ascending) {
-                                            return delta < 0;
-                                        }
-                                        return delta > 0;
-                                    }
-                                }
-                                return false;
-                            });
-                    const_cast<ImGuiTableSortSpecs*>(sort_specs)->SpecsDirty = false;
-                }
-            }
-
             // caching values since they could change in cycle
-            auto& cur_db = m_db_cache[m_current_db_source];
-            auto cur_source = m_current_db_source;
+            auto& cur_db = m_db_apps[m_db_selected];
+            auto cur_source = m_db_selected;
 
-            for (const auto& app : cur_db) {
+            size_t idx = 0;
+            for (auto& app : cur_db) {
+                auto app_designator = app.InfoDesignatorGet();
+                auto app_fsr_enabled = app.InfoFsrEnabled();
+
                 // Filter
-                if (m_search_buffer[0] != '\0') {
-                    std::string m_search_str = m_search_buffer;
-                    std::transform(m_search_str.begin(), m_search_str.end(), m_search_str.begin(), ::tolower);
-                    if (app.m_designator.find(m_search_buffer) == std::string::npos) {
+                if (!m_search_str.empty()) {
+                    if (app_designator.find(m_search_str) == std::string::npos) {
                         continue;
                     }
                 }
 
                 ImGui::TableNextRow();
-                ImGui::PushID(app.m_designator.c_str());
+                ImGui::PushID(idx++);
 
-                if (app.fsr_enabled) {
+                if (app_fsr_enabled) {
                     ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0,
                         ImGui::ColorConvertFloat4ToU32(ImVec4(.4, .9, .0, .5)));
                 }
 
                 ImGui::TableNextColumn();
-                ImGui::Text("%ls", app.app->GetFileName().c_str());
+                for (const auto& filename : app.InfoTitleGet()) {
+                    ImGui::Text("%ls", filename.c_str());
+                }
+
                 ImGui::TableNextColumn();
-                ImGui::Text("%ls", app.app->GetTitle().c_str());
+                for (const auto& filename : app.InfoFilenameGet()) {
+                    ImGui::Text("%ls", filename.c_str());
+                }
+
                 ImGui::TableNextColumn();
-                ImGui::Text("%ls", app.fsr_enabled ? L"YES" : L"NO");
+                ImGui::Text("%ls", app_fsr_enabled ? L"YES" : L"NO");
 
                 ImGui::TableNextColumn();
 
 
-                ImGui::BeginDisabled(app.fsr_enabled);
+                ImGui::BeginDisabled(app_fsr_enabled);
                 if (ImGui::Button("Whitelist FSR4")) {
-                    m_current_db_source = ADL_AP_DATABASE__USER;
-                    app.app->AssignProfile(m_adl_context, L"FSROVR", L"FsrOvrWhitelistProfile");
-                    m_db_cache_dirty = true;
+                    app.ProfileAssign(m_adl_context, L"FSROVR", L"FsrOvrWhitelistProfile");
+                    m_db_selected_next = DatabaseType::User;
+                    m_db_dirty[m_db_selected_next] = true;
                 }
                 ImGui::EndDisabled();
 
                 ImGui::SameLine();
                 if (ImGui::Button("Details")) {
-                    m_ui_details = std::make_unique<WindowDetails>(app.app);
+                    m_ui_details = std::make_unique<WindowDetails>(app);
                 }
 
                 ImGui::SameLine();
-                ImGui::BeginDisabled(cur_source != ADL_AP_DATABASE__USER);
+                ImGui::BeginDisabled(cur_source != DatabaseType::User);
                 if (ImGui::Button("Remove")) {
-                    app.app->Remove(m_adl_context);
-                    m_db_cache_dirty = true;
+                    app.Remove(m_adl_context);
+                    m_db_dirty[m_db_selected] = true;
                 }
                 ImGui::EndDisabled();
 
@@ -326,19 +285,8 @@ namespace OST::AMD::GPU::ProfileManager {
         ImGui::EndTable();
     }
 
-    bool WindowMain::isAppWhitelisted(const std::wstring& filename) {
-        for (const auto& [db_type, db_cache] : m_db_cache) {
-            for (const auto& app_cache : db_cache) {
-                if (app_cache.app->GetFileName() == filename && app_cache.fsr_enabled) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     void WindowMain::uiUpdatePresetActions() {
-        if (m_current_db_source != ADL_AP_DATABASE__USER) {
+        if (m_db_selected != DatabaseType::User) {
             return;
         }
 
@@ -350,19 +298,16 @@ namespace OST::AMD::GPU::ProfileManager {
             if (ImGui::Button(button_label.c_str())) {
                 m_selected_preset = preset_name;
                 for (const auto& preset_app : preset_apps) {
-                    if (!isAppWhitelisted(preset_app.exename)) {
-                        Application app(preset_app.exename, preset_app.title, L"", L"");
-                        app.AssignProfile(m_adl_context, L"FSROVR", L"FsrOvrWhitelistProfile");
-                    }
+                    Application app(preset_app.exename, preset_app.title, L"", L"");
+                    app.AssignProfile(m_adl_context, L"FSROVR", L"FsrOvrWhitelistProfile");
                 }
-                m_db_cache_dirty = true;
-                dbRefresh();
+                m_db_dirty[m_db_selected] = true;
             }
         }
     }
 
     void WindowMain::uiUpdateModalCreateNewProfile() {
-        if (m_current_db_source == ADL_AP_DATABASE__USER) {
+        if (m_db_selected == DatabaseType::User) {
             if (ImGui::Button("Create")) {
                 ImGui::OpenPopup("Create New Profile");
             }
@@ -378,8 +323,8 @@ namespace OST::AMD::GPU::ProfileManager {
             static char path[128] = "";
             static char version[128] = "";
 
-            ImGui::InputText("Filename", filename, IM_ARRAYSIZE(filename));
             ImGui::InputText("Title", title, IM_ARRAYSIZE(title));
+            ImGui::InputText("Filename", filename, IM_ARRAYSIZE(filename));
             ImGui::InputTextWithHint("Path", "optional", path, IM_ARRAYSIZE(path));
             ImGui::InputTextWithHint("Version", "optional", version, IM_ARRAYSIZE(version));
 
@@ -392,17 +337,15 @@ namespace OST::AMD::GPU::ProfileManager {
                 Application app(w_filename, w_title, w_path, w_version);
                 app.AssignProfile(m_adl_context, L"FSROVR", L"FsrOvrWhitelistProfile");
 
-                m_db_cache_dirty = true;
-                dbRefresh();
-
+                m_db_dirty[m_db_selected] = true;
                 ImGui::CloseCurrentPopup();
-           }
+            }
             ImGui::SetItemDefaultFocus();
             ImGui::SameLine();
             if (ImGui::Button("Cancel", ImVec2(120, 0))) {
                 ImGui::CloseCurrentPopup();
-           }
+            }
             ImGui::EndPopup();
-       }
-   }
+        }
+    }
 }

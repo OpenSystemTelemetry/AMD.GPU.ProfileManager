@@ -7,10 +7,14 @@
 // Includes
 //
 
+// stdlib
+#include <codecvt>
+#include <locale>
+
+// AMD GPU Profile Manager
 #include "amd_gpu_profilemanager_utils.h"
 
-#include <locale>
-#include <codecvt>
+
 
 //
 // Structs
@@ -42,6 +46,46 @@ namespace OST::AMD::GPU::ProfileManager {
         std::wstring ToUtf16(const std::string &str) {
             std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
             return converter.from_bytes(str);
+        }
+
+        void RemoveSubstring(std::wstring& wstr, const std::vector<std::wstring>& whats) {
+            // Collect non-empty patterns
+            std::vector<std::wstring_view> substrs;
+            substrs.reserve(whats.size());
+            for (const auto& w : whats) {
+                if (!w.empty()) {
+                    substrs.emplace_back(w);
+                }
+            }
+
+            if (substrs.empty() || wstr.empty()) {
+                return;
+            }
+
+            std::wstring::size_type pos = 0;
+            while (pos < wstr.size()) {
+                std::wstring::size_type best_pos = std::wstring::npos;
+                std::wstring::size_type best_len = 0;
+
+                for (auto substr : substrs) {
+                    const auto found = wstr.find(substr, pos);
+                    if (found == std::wstring::npos) {
+                        continue;
+                    }
+
+                    if (found < best_pos || (found == best_pos && substr.size() > best_len)) {
+                        best_pos = found;
+                        best_len = substr.size();
+                    }
+                }
+
+                if (best_pos == std::wstring::npos) {
+                    break;
+                }
+
+                wstr.erase(best_pos, best_len);
+                pos = best_pos;
+            }
         }
     }
 }
